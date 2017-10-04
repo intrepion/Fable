@@ -12,8 +12,8 @@
             // "args": ["start"],
             // "args": ["debug", "src/dotnet/Fable.Client.Browser/Fable.Client.Browser.fsproj"],
             "program": "${workspaceRoot}/build/fable/dotnet-fable.dll",
-            "args": ["debug", "src/tools/QuickTest.fsx"],
-            "cwd": "${workspaceRoot}",
+            "args": ["webpack-dev-server"],
+            "cwd": "${workspaceRoot}/../Fulma/docs",
             "stopAtEntry": true,
             "externalConsole": false
         },

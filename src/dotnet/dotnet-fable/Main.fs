@@ -140,7 +140,7 @@ let startServerWithProcess workingDir port exec args =
                 p.Kill()
                 Server.stop port |> Async.RunSynchronously
     let agent = startAgent()
-    startServer port -1 agent.Post <| fun listen ->
+    startServer port -1 (JSClient >> agent.Post) <| fun listen ->
         Async.Start listen
         let p =
             ProcessOptions(envVars=Map["FABLE_SERVER_PORT", string port])
@@ -232,7 +232,7 @@ let main argv =
     | Some "start" ->
         let args = argv.[1..] |> parseArguments
         let agent = startAgent()
-        startServer args.port args.timeout agent.Post (Async.RunSynchronously >> konst 0)
+        startServer args.port args.timeout (JSClient >> agent.Post) (Async.RunSynchronously >> konst 0)
     | Some "npm-run" ->
         runNpmOrYarn "npm" argv.[1..]
     | Some (StartsWith "npm-" command) ->

@@ -6,11 +6,13 @@ open Fable.AST
 
 type InlineExpr = IDictionary<FSharpMemberOrFunctionOrValue,int> * FSharpExpr
 
+type FileRequester = string -> Async<FSharpImplementationFileContents option>
+
 type ICompilerState =
     abstract ProjectFile: string
     abstract GetRootModule: string -> string
-    abstract GetOrAddEntity: string * (unit->Fable.Entity) -> Fable.Entity
-    abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
+    abstract GetOrAddEntity: string * (FileRequester->Fable.Entity) -> Fable.Entity
+    abstract GetOrAddInlineExpr: string * (FileRequester->InlineExpr) -> InlineExpr
 
 #if !NETFX && !FABLE_COMPILER
 [<AutoOpen>]

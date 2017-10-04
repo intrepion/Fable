@@ -27,26 +27,35 @@ type PathRef =
     | FilePath of string
     | NonFilePath of string
 
-type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharpImplementationFileContents>,
-             errors: FSharpErrorInfo array,  fableCore: PathRef, isWatchCompile: bool) =
+type ImplementationFile =
+    { AST: FSharpImplementationFileContents
+      TimeStamp: DateTime }
+
+type FileRequester = (string*Project)->Async<FSharpImplementationFileContents option>
+
+and Project(projectOptions: FSharpProjectOptions, implFiles: seq<FSharpImplementationFileContents>,
+             errors: FSharpErrorInfo array, fableCore: PathRef, requester:FileRequester) =
     let timestamp = DateTime.Now
+    let mutable implFiles = implFiles |> Seq.map (fun f ->
+        Path.normalizePath f.FileName, { AST = f; TimeStamp = timestamp }) |> Map
     let projectFile = Path.normalizePath projectOptions.ProjectFileName
     let entities = ConcurrentDictionary<string, Fable.Entity>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
-    let normalizedFiles =
-        projectOptions.SourceFiles
-        |> Seq.map Path.normalizeFullPath
-        |> Set
     let rootModules =
-        implFiles |> Map.map (fun _ file -> FSharp2Fable.Compiler.getRootModuleFullName file)
-    member __.TimeStamp = timestamp
+        implFiles |> Seq.map (fun kv ->
+            kv.Key, FSharp2Fable.Compiler.getRootModuleFullName kv.Value.AST) |> Map
+    // TODO: Shouldn't be mutable
     member __.FableCore = fableCore
-    member __.IsWatchCompile = isWatchCompile
     member __.ImplementationFiles = implFiles
     member __.Errors = errors
     member __.ProjectOptions = projectOptions
     member __.ProjectFile = projectFile
-    member __.NormalizedFilesSet = normalizedFiles
+    member val TimeStamp = timestamp with get, set
+    member __.UpdateImplementationFiles(updatedImplFiles: #seq<FSharpImplementationFileContents>) =
+        let timestamp = DateTime.Now
+        implFiles <-
+            (implFiles, updatedImplFiles) ||> Seq.fold (fun acc file ->
+                Map.add (Path.normalizePath file.FileName) { AST=file; TimeStamp=timestamp } acc)
     interface ICompilerState with
         member this.ProjectFile = projectOptions.ProjectFileName
         member this.GetRootModule(fileName) =
@@ -54,9 +63,13 @@ type Project(projectOptions: FSharpProjectOptions, implFiles: Map<string, FSharp
             | Some rootModule -> rootModule
             | None -> failwithf "Cannot find root module for %s" fileName
         member this.GetOrAddEntity(fullName, generate) =
-            entities.GetOrAdd(fullName, fun _ -> generate())
+            entities.GetOrAdd(fullName, fun _ ->
+                let requester fileName = requester (fileName, this)
+                generate requester)
         member this.GetOrAddInlineExpr(fullName, generate) =
-            inlineExprs.GetOrAdd(fullName, fun _ -> generate())
+            inlineExprs.GetOrAdd(fullName, fun _ ->
+                let requester fileName = requester (fileName, this)
+                generate requester)
 
 type State = Map<string, Project>
 

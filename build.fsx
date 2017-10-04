@@ -441,6 +441,9 @@ Target "GitHubRelease" (fun _ ->
 
 Target "Clean" clean
 Target "NugetRestore" (nugetRestore "src/dotnet")
+Target "FableCLIDebug" (fun _ ->
+    nugetRestore "src/dotnet" ()
+    buildCLI "src/dotnet" false ())
 Target "FableCLI" (fun _ ->
     nugetRestore "src/dotnet" ()
     buildCLI "src/dotnet" true ())
